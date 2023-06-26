@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Report</title>
+</head>
+
+<body style="font-size: 1.05rem;">
+    <h1>
+        Status: <%= status %>
+    </h1>
+
+    <table>
+        <tbody>
+            <tr>
+                <td><b>Total:</b></td>
+                <td>
+                    <%= testNumbers.total %>
+                </td>
+            </tr>
+            <tr>
+                <td><b>Passed:</b></td>
+                <td>
+                    <%= testNumbers.passed %>
+                </td>
+            </tr>
+            <tr>
+                <td><b>Failed:</b></td>
+                <td>
+                    <%= testNumbers.failed %>
+                </td>
+            </tr>
+            <tr>
+                <td><b>Flaky:</b></td>
+                <td>
+                    <%= testNumbers.flaky %>
+                </td>
+            </tr>
+            <tr>
+                <td><b>Skipped:</b></td>
+                <td>
+                    <%= testNumbers.skipped %>
+                </td>
+            </tr>
+            <tr>
+                <td><b>Timed Out:</b></td>
+                <td>
+                    <%= testNumbers.timedOut %>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>Tests</h2>
+
+    <%
+        const COLORS = {
+            passed: {
+                background: '#c7f0d2',
+                text: '#008080'
+            },
+            failed: {
+                background: '#fac5cd',
+                text: '#d14'
+            },
+            flaky: {
+                background: '#faefc5',
+                text: '#d71'
+            },
+            skipped: {
+                background: '#b3b9b5',
+                text: '#1d1f1f'
+            },
+            timedOut: {
+                background: '#ddc5fa',
+                text: '#5611dd'
+            }
+        };
+        const SEPARATOR = ' > ';
+
+        const CELL_STYLES = 'padding: 6px; border: 1px solid #d0d7de;';
+
+        function getStyles(test) {
+            const colors = COLORS[test.result];
+            if (!colors) {
+                return '';
+            }
+
+            return `background-color: ${colors.background}; color: ${colors.text}`;
+        }
+
+        function getFileNameCellStyles(currentIndex, total) {
+            const backgroundCellColor = '#dde5ee';
+            const cellColor = '#0e529d';
+            const borderColor = '#d0d7de';
+
+            const borderWidth = '1px';
+
+            let border = `border-right: ${borderWidth} solid; border-left: ${borderWidth} solid; border-color: ${borderColor};`;
+            if (currentIndex === 0) {
+                border = `border-top: ${borderWidth} solid; ${border}`;
+            }
+            if (currentIndex === total) {
+                border = `border-bottom: ${borderWidth} solid; ${border}`;
+            }
+
+            return `padding: 6px; background: ${backgroundCellColor}; color: ${cellColor}; font-weight: 600; ${border}`;
+        }
+
+        function getTestTitle(suite, test, addSuiteName) {
+            if (!addSuiteName) {
+                return test.title;
+            }
+            return suite.title + SEPARATOR + test.title;
+        }
+
+        function convertSuiteTests(suite, addSuiteName = false) {
+            const result = suite.tests.map(test => ({
+                ...test,
+                title: getTestTitle(suite, test, addSuiteName)
+            }));
+            suite.suites.forEach(s => {
+                const children = convertSuiteTests(s, true);
+                children.forEach(test => {
+                    test.title = getTestTitle(suite, test, addSuiteName)
+                });
+                result.push(...children);
+            });
+
+            return result;
+        }
+
+        function removeAnsiColorsAndStyle(input) {
+            return input.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+        }
+    %>
+
+    <% suites.forEach(projectSuite => { %>
+        <h3>
+            <%= projectSuite.title %>
+        </h3>
+
+        <table cellspacing="0" style="border-collapse: collapse">
+            <thead>
+            <tr style="background: #9dc5f3; color: black; font-weight: 600">
+                <td style="<%= CELL_STYLES %>">File Name</td>
+                <td style="<%= CELL_STYLES %>">Test Name</td>
+                <td style="<%= CELL_STYLES %>">Status</td>
+            </tr>
+            </thead>
+            <tbody>
+                <%
+                    projectSuite.suites.forEach(fileSuite => {
+                    const tests = convertSuiteTests(fileSuite);
+                %>
+                    <% tests.forEach((test, index) => { %>
+                            <tr style="<%= getStyles(test) %>">
+                                <td style="<%= getFileNameCellStyles(index, tests.length - 1) %>">
+                                    <% if (index === 0) {%>
+                                        <%= fileSuite.title %>
+                                    <%}%>
+                                </td>
+                                <td style="<%= CELL_STYLES %>"><%= test.title %></td>
+                                <td style="<%= CELL_STYLES %>"><%= test.result %></td>
+                            </tr>
+                        <% }) %>
+                    <tr style="height: 8px"></tr>
+                <% }) %>
+            </tbody>
+        </table>
+
+        <h3>Errors :</h3>
+
+        <% projectSuite.suites.forEach(fileSuite => {
+            const tests = convertSuiteTests(fileSuite);
+        %>
+            <% tests.forEach((test, index) => { %>
+                <% if(test.errors?.length)  { %>
+                    <table cellspacing="0" style="border-collapse: collapse; border: 1px solid #d0d7de;">
+                        <thead style="border-bottom: 1px solid #d0d7de;">
+                        <tr style="background: #f6f8fa">
+                            <td style="padding: 12px 16px;">
+                                <span><%= test.title %></span>
+                                <span style="color: #57606a; font-size: 0.9rem">— <%= fileSuite.title %></span>
+                            </td>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr style="height: 16px"></tr>
+                        <% test.errors.forEach(error => {  %>
+                            <tr style="background: #f6f8fa">
+                                <td style="padding: 16px;">
+                                    <span style="white-space: pre"><%= removeAnsiColorsAndStyle(error.stack) %></span>
+                                </td>
+                            </tr>
+                            <tr style="height: 16px"></tr>
+                        <% }) %>
+                        </tbody>
+
+                    </table>
+                    <br>
+                <% } %>
+            <% }) %>
+        <% }) %>
+    <% }) %>
+</body>
+
+</html>
